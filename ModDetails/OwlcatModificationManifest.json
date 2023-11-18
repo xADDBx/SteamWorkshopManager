@@ -1,0 +1,12 @@
+{
+  "UniqueName": "SteamWorkshopManager",
+  "Version": "1.0.0",
+  "DisplayName": "Steam Workshop ModManager",
+  "Description": "Steam Workshop ModManager",
+  "Author": "ADDB",
+  "ImageName": "Thumbnail.jpg",
+  "WorkshopId": "",
+  "Repository": "",
+  "HomePage": "",
+  "Dependencies": []
+}
