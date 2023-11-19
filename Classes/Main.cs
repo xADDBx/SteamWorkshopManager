@@ -65,7 +65,7 @@ namespace SteamWorkshopManager {
                 UI.Toggle("Should automatically delete subscribed items (still needs refresh or restart if done over Steam Website)", ref settings.ShouldAutoInstallSubscribedItems);
                 lastFrameWasException = false;
                 if (startShow) {
-                    UI.ActionButton("Refresh", () => Refresh());
+                    UI.ActionButton("Refresh", () => todo.Add(Refresh));
                     ModBrowser.OnGUI(DownloadedOrSubscribedOrInstalled, () => mods, m => m, m => $"{m.name} {m.description} {m.id} {m.authorName} {m.authorID}", m => new string[] { m.name ?? "" }, () => {
                         UI.Label("Name", UI.Width(200));
                         UI.Label("Id", UI.Width(100));
@@ -271,7 +271,13 @@ namespace SteamWorkshopManager {
         }
         // TODO
         public static void Refresh() {
-
+            toRemoveMods = new();
+            toInstallMods = new();
+            mods = new();
+            Downloading = new();
+            DownloadedOrSubscribedOrInstalled = new();
+            InitOnline().GetAwaiter().GetResult();
+            InitLocal();
         }
     }
 }
