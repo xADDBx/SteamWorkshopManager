@@ -95,6 +95,8 @@ namespace SteamWorkshopManager {
                     Helper.HandleManagerSettings(true, modInfo.UniqueName);
                 }
                 installed = true;
+                Main.toInstallMods.Remove(this);
+                Main.settings.toInstallIds.Remove(id);
             } else {
                 Download();
                 Main.settings.toInstallIds.Add(id);
