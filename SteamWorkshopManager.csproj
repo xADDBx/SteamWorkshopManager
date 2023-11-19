@@ -81,7 +81,8 @@
 			<Private>False</Private>
 		</Reference>
 		<Reference Include="Facepunch.Steamworks.Win64">
-			<HintPath>$(SolutionDir)lib\Facepunch.Steamworks.Win64_public.dll</HintPath>
+			<HintPath>$(SolutionDir)lib\Facepunch.Steamworks.Win64.dll</HintPath>
+			<Private>True</Private>
 		</Reference>
 	</ItemGroup>
 	<ItemGroup>
@@ -89,14 +90,9 @@
 		<PubliciseInputAssemblies Include="$(RogueTraderInstallDir)\WH40KRT_Data\Managed\RogueTrader.GameCore.dll" />
 		<PubliciseInputAssemblies Include="$(RogueTraderData)\UnityModManager\UnityModManager.dll" />
 		<PubliciseInputAssemblies Include="$(RogueTraderInstallDir)\WH40KRT_Data\Managed\Steamworks.NET.dll" />
-		<PubliciseInputAssemblies Include="$(SolutionDir)Assets\Facepunch.Steamworks.Win64.dll" />
 	</ItemGroup>
 	<ItemGroup>
 		<Content Include="ModDetails\*.*">
-			<Link>%(Filename)%(Extension)</Link>
-			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-		<Content Include="Assets\*.dll">
 			<Link>%(Filename)%(Extension)</Link>
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</Content>
