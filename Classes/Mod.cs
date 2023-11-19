@@ -38,13 +38,17 @@ namespace SteamWorkshopManager {
         public void Subscribe() {
             steamItem.Subscribe();
             subscribed = true;
-            Install();
+            if (Main.settings.ShouldAutoInstallSubscribedItems) {
+                Install();
+            }
             Main.recentlySubscribed.Add(this);
         }
         public void Unsubscribe() {
             steamItem.Unsubscribe();
             subscribed = false;
-            Uninstall();
+            if (Main.settings.ShouldAutoDeleteUnsubscribedItems) {
+                Uninstall();
+            }
             Main.recentlyUnsubscribed.Add(this);
         }
         public void Download() {
@@ -191,6 +195,11 @@ namespace SteamWorkshopManager {
                             }
                         }
                     }
+                }
+                if (installed && !subscribed && Main.settings.ShouldAutoDeleteUnsubscribedItems) {
+                    Uninstall();
+                } else if (!installed && subscribed && Main.settings.ShouldAutoInstallSubscribedItems) {
+                    Install();
                 }
             }
         }

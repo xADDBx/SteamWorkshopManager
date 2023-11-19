@@ -61,6 +61,8 @@ namespace SteamWorkshopManager {
                     UI.ActionButton("Reset", () => { lastException = null; lastFrameWasException = true; });
                     return;
                 }
+                UI.Toggle("Should automatically delete unsubscribed items (still needs refresh or restart if done over Steam Website)", ref settings.ShouldAutoDeleteUnsubscribedItems);
+                UI.Toggle("Should automatically delete subscribed items (still needs refresh or restart if done over Steam Website)", ref settings.ShouldAutoInstallSubscribedItems);
                 lastFrameWasException = false;
                 if (startShow) {
                     UI.ActionButton("Refresh", () => Refresh());
