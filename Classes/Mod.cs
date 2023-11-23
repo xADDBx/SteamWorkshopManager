@@ -2,8 +2,6 @@
 using ModKit;
 using Newtonsoft.Json;
 using Steamworks;
-using Steamworks.Data;
-using Steamworks.Ugc;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -18,8 +16,9 @@ using UnityModManagerNet;
 namespace SteamWorkshopManager {
 
     public class Mod {
-        public Item steamItem;
-        public ulong id = 0;
+        public PublishedFileId_t id;
+        public bool isDownloading;
+        public bool isDownloadPending;
         public string name = null;
         public string description = null;
         public string authorName = null;
@@ -36,7 +35,7 @@ namespace SteamWorkshopManager {
         public string cacheLocation = null;
         public string ModManagerPath => isUmm ? Path.Combine(Main.AppDataDir, "UnityModManager") : Path.Combine(Main.AppDataDir, "Modifications");
         public void Subscribe() {
-            steamItem.Subscribe();
+            SteamUGC.SubscribeItem(id);
             subscribed = true;
             if (Main.settings.ShouldAutoInstallSubscribedItems) {
                 Install();
@@ -44,7 +43,7 @@ namespace SteamWorkshopManager {
             Main.recentlySubscribed.Add(this);
         }
         public void Unsubscribe() {
-            steamItem.Unsubscribe();
+            SteamUGC.UnsubscribeItem(id);
             subscribed = false;
             if (Main.settings.ShouldAutoDeleteUnsubscribedItems) {
                 Uninstall();
@@ -52,8 +51,16 @@ namespace SteamWorkshopManager {
             Main.recentlyUnsubscribed.Add(this);
         }
         public void Download() {
-            // Passing new CancellationTokenSource to prevent default 1minute timeout
-            Main.Downloading[this] = steamItem.DownloadAsync(null, 60, new());
+            if (isDownloading && !Main.Downloading.Contains(this)) {
+                Main.Downloading.Add(this);
+            } else {
+                if (!SteamUGC.DownloadItem(id, true)) {
+                    Main.log.Log($"Error while trying to download mod {id} with name {name}: nPublishedFileID is invalid or the user is not logged on");
+                } else {
+                    isDownloading = true;
+                    Main.Downloading.Add(this);
+                }
+            }
         }
         public void Install() {
             if (downloaded) {
@@ -81,17 +88,17 @@ namespace SteamWorkshopManager {
                 }
                 OwlcatTemplateClass modInfo = null;
                 try {
-                    modInfo = JsonConvert.DeserializeObject<OwlcatTemplateClass>(File.ReadAllText(Path.Combine(tempDir.FullName, Main.ModInfoFile)));
+                    modInfo = JsonConvert.DeserializeObject<OwlcatTemplateClass>(File.ReadAllText(Path.Combine(tempDir.FullName, Main.ModInfoName)));
                     if (modInfo == null) {
                         throw new Exception("Deserialization of Modinfo resulted in Null");
                     }
                 } catch (Exception ex) {
-                    Main.log.Log($"Can't read manifest of mod {name} with id {id} at {Path.Combine(tempDir.FullName, Main.ModInfoFile)}; Marking dirty");
+                    Main.log.Log($"Can't read manifest of mod {name} with id {id} at {Path.Combine(tempDir.FullName, Main.ModInfoName)}; Marking dirty");
                     Main.log.Log(ex.ToString());
                     dirtyManifest = true;
                     return;
                 }
-                isUmm = new FileInfo(Path.Combine(tempDir.FullName, Main.UMMInfoFile)).Exists;
+                isUmm = new FileInfo(Path.Combine(tempDir.FullName, Main.UMMInfoName)).Exists;
                 uniqueName = modInfo.UniqueName;
                 DirectoryInfo targetDir = new DirectoryInfo(Path.Combine(ModManagerPath, modInfo.UniqueName));
                 Helper.MoveDirectoryContents(tempDir, targetDir.FullName);
@@ -100,31 +107,36 @@ namespace SteamWorkshopManager {
                 }
                 installed = true;
                 Main.toInstallMods.Remove(this);
-                Main.settings.toInstallIds.Remove(id);
+                Main.settings.toInstallIds.Remove(id.m_PublishedFileId);
             } else {
                 Download();
-                Main.settings.toInstallIds.Add(id);
+                Main.settings.toInstallIds.Add(id.m_PublishedFileId);
                 Main.toInstallMods.Add(this);
             }
         }
         public void Uninstall() {
             installed = false;
-            Main.settings.toRemoveIds.Add(id);
+            Main.settings.toRemoveIds.Add(id.m_PublishedFileId);
             Main.toRemoveMods.Add(this);
             DirectoryInfo targetDir = new DirectoryInfo(Path.Combine(ModManagerPath, uniqueName));
             if (isUmm) {
-                File.Delete(Path.Combine(targetDir.FullName, Main.UMMInfoFile));
+                File.Delete(Path.Combine(targetDir.FullName, Main.UMMInfoName));
             } else {
                 Helper.HandleManagerSettings(false, uniqueName);
             }
         }
         public void UninstallFinally() {
             if (!enabled) {
-                DirectoryInfo targetDir = new DirectoryInfo(Path.Combine(ModManagerPath, uniqueName));
-                targetDir.Delete(true);
-                installed = false;
-                Main.toRemoveMods.Remove(this);
-                Main.settings.toRemoveIds.Remove(id);
+                try {
+                    DirectoryInfo targetDir = new DirectoryInfo(Path.Combine(ModManagerPath, uniqueName));
+                    targetDir.Delete(true);
+                    installed = false;
+                    Main.toRemoveMods.Remove(this);
+                    Main.settings.toRemoveIds.Remove(id.m_PublishedFileId);
+                } catch (Exception e) {
+                    Main.log.Log($"Error while finally uninstalling mod {id} with name {name}");
+                    Main.log.Log(e.ToString());
+                }
             }
         }
         public void Update() {
@@ -132,17 +144,25 @@ namespace SteamWorkshopManager {
             downloaded = false;
             Install();
         }
-        public void InitProperties(Item entry) {
-            authorName = entry.Owner.Name;
-            description = entry.Description;
-            authorID = entry.Owner.Id.Value;
-            name = entry.Title;
-            id = entry.Id;
-            downloaded = entry.IsInstalled;
-            subscribed = entry.IsSubscribed;
-            hasUpdate = entry.NeedsUpdate;
-            cacheLocation = entry.Directory;
-            steamItem = entry;
+        public void InitProperties(SteamUGCDetails_t entry) {
+            // authorName = entry.Owner.Name;
+            description = entry.m_rgchDescription;
+            authorID = entry.m_ulSteamIDOwner;
+            name = entry.m_rgchTitle;
+            id = entry.m_nPublishedFileId;
+            InitSteamInfo();
+        }
+        public void InitSteamInfo() {
+            var state = (EItemState)SteamUGC.GetItemState(id);
+            downloaded = state.HasFlag(EItemState.k_EItemStateInstalled);
+            subscribed = state.HasFlag(EItemState.k_EItemStateSubscribed);
+            hasUpdate = state.HasFlag(EItemState.k_EItemStateNeedsUpdate);
+            isDownloading = state.HasFlag(EItemState.k_EItemStateDownloading);
+            isDownloadPending = state.HasFlag(EItemState.k_EItemStateDownloadPending);
+            if (downloaded) {
+                SteamUGC.GetItemInstallInfo(id, out var size, out var dir, 256, out var timestamp);
+                cacheLocation = dir;
+            }
         }
         public void InitState(DirectoryInfo tempDir, ModificationManagerSettings ModManagerSettings) {
             if (downloaded) {
@@ -169,23 +189,23 @@ namespace SteamWorkshopManager {
                 }
                 OwlcatTemplateClass modInfo = null;
                 try {
-                    modInfo = JsonConvert.DeserializeObject<OwlcatTemplateClass>(File.ReadAllText(Path.Combine(tempDir.FullName, Main.ModInfoFile)));
+                    modInfo = JsonConvert.DeserializeObject<OwlcatTemplateClass>(File.ReadAllText(Path.Combine(tempDir.FullName, Main.ModInfoName)));
                     if (modInfo == null) {
                         throw new Exception("Deserialization of Modinfo resulted in Null");
                     }
                 } catch (Exception ex) {
-                    Main.log.Log($"Can't read manifest of mod {name} with id {id} at {Path.Combine(tempDir.FullName, Main.ModInfoFile)}; Marking dirty");
+                    Main.log.Log($"Can't read manifest of mod {name} with id {id} at {Path.Combine(tempDir.FullName, Main.ModInfoName)}; Marking dirty");
                     Main.log.Log(ex.ToString());
                     dirtyManifest = true;
                     return;
                 }
-                isUmm = new FileInfo(Path.Combine(tempDir.FullName, Main.UMMInfoFile)).Exists;
+                isUmm = new FileInfo(Path.Combine(tempDir.FullName, Main.UMMInfoName)).Exists;
                 uniqueName = modInfo.UniqueName;
                 DirectoryInfo targetDir = new DirectoryInfo(Path.Combine(ModManagerPath, modInfo.UniqueName));
                 if (targetDir.Exists) {
                     installed = true;
                     if (isUmm) {
-                        if (new FileInfo(Path.Combine(targetDir.FullName, Main.UMMInfoFile)).Exists) {
+                        if (new FileInfo(Path.Combine(targetDir.FullName, Main.UMMInfoName)).Exists) {
                             enabled = true;
                         }
                     } else {

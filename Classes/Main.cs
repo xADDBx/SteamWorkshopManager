@@ -2,19 +2,18 @@
 using ModKit;
 using Newtonsoft.Json;
 using Steamworks;
-using Steamworks.Data;
-using Steamworks.Ugc;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityModManagerNet;
-using static UnityModManagerNet.UnityModManager.Param;
 
 namespace SteamWorkshopManager {
     public static class Main {
@@ -22,27 +21,32 @@ namespace SteamWorkshopManager {
         public static Settings settings;
         internal static UnityModManager.ModEntry modEntry;
         internal static UI.Browser<Mod, Mod> ModBrowser = new(true, true);
-        public static AppId appId = 2186680;
-        public const string AppDataDirName = "WH 40000 RT";
-        public const string UMM = "UnityModManager";
-        public const string OwlcatTemplate = "Modifications";
-        public const string ModificationManagerSettings = "OwlcatModificationManagerSettings.json";
-        public const string UMMInfoFile = "Info.json";
-        public const string ModInfoFile = "OwlcatModificationManifest.json";
+        public static AppId_t appId => SteamUtils.GetAppID();
+        public const string AppDataDirName = "Warhammer 40000 Rogue Trader";
+        public const string UMMDirName = "UnityModManager";
+        public const string OwlcatTemplateDirName = "Modifications";
+        public const string ModificationManagerSettingsName = "OwlcatModificationManagerSettings.json";
+        public const string UMMInfoName = "Info.json";
+        public const string ModInfoName = "OwlcatModificationManifest.json";
         public static string AppDataDir;
         public static HashSet<Mod> mods = new();
         public static HashSet<Mod> DownloadedOrSubscribedOrInstalled = new();
         public static HashSet<Mod> toInstallMods = new();
         public static HashSet<Mod> toRemoveMods = new();
-        public static Dictionary<Mod, Task<bool>> Downloading = new();
+        public static HashSet<Mod> Downloading = new();
         public static bool finishedOnlineInit = false;
         public static bool finishedLocalInit = false;
+        public static bool isFirstInit = true;
         public static int timer = 0;
+        public static CallResult<SteamUGCQueryCompleted_t> queryCompleted;
+        public static Callback<DownloadItemResult_t> downloadCompleted;
 
         public static bool Load(UnityModManager.ModEntry modEntry) {
             log = modEntry.Logger;
             Main.modEntry = modEntry;
             if (!PreInit()) return false;
+            queryCompleted = CallResult<SteamUGCQueryCompleted_t>.Create(OnUGCQueryResult);
+            downloadCompleted = Callback<DownloadItemResult_t>.Create(OnDownloadComplete);
             modEntry.OnGUI = OnGUI;
             settings = UnityModManager.ModSettings.Load<Settings>(modEntry);
             modEntry.OnSaveGUI = OnSaveGUI;
@@ -61,20 +65,20 @@ namespace SteamWorkshopManager {
                     UI.ActionButton("Reset", () => { lastException = null; lastFrameWasException = true; });
                     return;
                 }
+                UI.ActionButton("Reset Cache", () => todo.Add(Refresh));
                 UI.Toggle("Should automatically delete unsubscribed items (still needs refresh or restart if done over Steam Website)", ref settings.ShouldAutoDeleteUnsubscribedItems);
                 UI.Toggle("Should automatically delete subscribed items (still needs refresh or restart if done over Steam Website)", ref settings.ShouldAutoInstallSubscribedItems);
                 lastFrameWasException = false;
                 if (startShow) {
-                    UI.ActionButton("Refresh", () => todo.Add(Refresh));
                     ModBrowser.OnGUI(DownloadedOrSubscribedOrInstalled, () => mods, m => m, m => $"{m.name} {m.description} {m.id} {m.authorName} {m.authorID}", m => new string[] { m.name ?? "" }, () => {
                         UI.Label("Name", UI.Width(200));
                         UI.Label("Id", UI.Width(100));
                         UI.Label("Author", UI.Width(100));
                         UI.Label("Description", UI.Width(600));
-                        UI.Label("Subscribed", UI.Width(200));
-                        UI.Label("Downloaded", UI.Width(200));
-                        UI.Label("Installed", UI.Width(200));
-                        UI.Label("Enabled", UI.Width(200));
+                        UI.Label("Subscribed", UI.Width(160));
+                        UI.Label("Downloaded", UI.Width(140));
+                        UI.Label("Installed", UI.Width(140));
+                        UI.Label("Enabled", UI.Width(140));
                     },
                         (def, item) => {
                             if (def.dirtyManifest) {
@@ -87,29 +91,33 @@ namespace SteamWorkshopManager {
                             UI.Label(def.authorName ?? def.authorID.ToString() ?? "", UI.Width(100));
                             UI.Label(def.description ?? "", UI.Width(600));
                             if (def.subscribed) {
-                                UI.Label(UI.ChecklyphOn, UI.Width(100));
-                                UI.ActionButton("Unsubscribe", () => todo.Add(() => def.Unsubscribe()), UI.Width(100));
+                                UI.Label(UI.ChecklyphOn, UI.Width(15));
+                                UI.ActionButton("Unsubscribe", () => todo.Add(() => def.Unsubscribe()), UI.Width(125));
                             } else {
-                                UI.Label(UI.CheckGlyphOff, UI.Width(100));
-                                UI.ActionButton("Subscribe", () => todo.Add(() => def.Subscribe()), UI.Width(100));
+                                UI.Label(UI.CheckGlyphOff, UI.Width(15));
+                                UI.ActionButton("Subscribe", () => todo.Add(() => def.Subscribe()), UI.Width(125));
                             }
+                            UI.Space(20);
                             if (def.downloaded) {
-                                UI.Label(UI.ChecklyphOn, UI.Width(200));
+                                UI.Label(UI.ChecklyphOn, UI.Width(15));
+                                UI.Space(105);
                             } else {
-                                UI.Label(UI.CheckGlyphOff, UI.Width(100));
-                                UI.ActionButton("Download", () => todo.Add(() => def.Download()), UI.Width(100));
+                                UI.Label(UI.CheckGlyphOff, UI.Width(15));
+                                UI.ActionButton("Download", () => todo.Add(() => def.Download()), UI.Width(105));
                             }
+                            UI.Space(20);
                             if (def.installed) {
-                                UI.Label(UI.ChecklyphOn, UI.Width(100));
-                                UI.ActionButton("Uninstall", () => todo.Add(() => def.Uninstall()), UI.Width(100));
+                                UI.Label(UI.ChecklyphOn, UI.Width(15));
+                                UI.ActionButton("Uninstall", () => todo.Add(() => def.Uninstall()), UI.Width(105));
                             } else {
-                                UI.Label(UI.CheckGlyphOff, UI.Width(100));
-                                UI.ActionButton("Install", () => todo.Add(() => def.Install()), UI.Width(100));
+                                UI.Label(UI.CheckGlyphOff, UI.Width(15));
+                                UI.ActionButton("Install", () => todo.Add(() => def.Install()), UI.Width(105));
                             }
+                            UI.Space(20);
                             if (def.enabled) {
-                                UI.Label(UI.ChecklyphOn, UI.Width(100));
+                                UI.Label(UI.ChecklyphOn, UI.Width(50));
                             } else {
-                                UI.Label(UI.CheckGlyphOff, UI.Width(100));
+                                UI.Label(UI.CheckGlyphOff, UI.Width(50));
                             }
                             UI.ActionButton("Reinstall/Update", () => todo.Add(() => def.Update()), UI.Width(200));
                         });
@@ -121,33 +129,13 @@ namespace SteamWorkshopManager {
                     }
                     todo.Clear();
                     if (timer == 60) {
+                        SteamAPI.RunCallbacks();
                         timer = 0;
-                        foreach (var download in Downloading.Keys.ToList()) {
-                            if (Downloading[download].IsCompleted) {
-                                if (Downloading[download].Result) {
-                                    // I'd assume there aren't too many downloads started here so bundling calls isn't really worth it
-                                    var page = Query.GameManagedItems.WithFileId(download.id).GetPageAsync(1).GetAwaiter().GetResult();
-                                    if (page.HasValue) {
-                                        foreach (var entry in page.Value.Entries) {
-                                            download.InitProperties(entry);
-                                        }
-                                        if (page.Value.ResultCount != 1) {
-                                            log.Log($"Encountered error while trying to download {download.name} with id {download.id}: Got {page.Value.ResultCount} results instead of 1");
-                                        }
-                                    } else {
-                                        log.Log($"Encountered error while trying to download {download.name} with id {download.id}: Can't query item");
-                                    }
-                                } else {
-                                    log.Log($"Encountered error while trying to download {download.name} with id {download.id}");
-                                }
-                                Downloading.Remove(download);
-                            }
-                        }
-                        foreach (var needInstall in toInstallMods) {
+                        foreach (var needInstall in toInstallMods.ToList()) {
                             if (needInstall.downloaded) {
                                 needInstall.Install();
                             } else {
-                                if (!Downloading.ContainsKey(needInstall)) {
+                                if (!Downloading.Contains(needInstall)) {
                                     needInstall.Download();
                                 }
                             }
@@ -173,8 +161,7 @@ namespace SteamWorkshopManager {
         }
         public static bool Init() {
             try {
-                // Since queries are async (but hopefully reasonably fast?) blocking awaiting the result here.
-                InitOnline().GetAwaiter().GetResult();
+                InitOnline();
             } catch (Exception ex) {
                 log.Log("Error while trying to initialize online caches");
                 log.Log(ex.ToString());
@@ -190,31 +177,73 @@ namespace SteamWorkshopManager {
                 return false;
             }
             finishedLocalInit = true;
+            isFirstInit = false;
             return true;
         }
-        public async static Task InitOnline() {
-            log.Log($"Try init online.");
-            var items = Query.GameManagedItems.SortByTitleAsc();
-            var currentCount = 0;
-            var currentPageNumber = 0;
-            var totalCount = 0;
+        public static void OnDownloadComplete(DownloadItemResult_t pCallback) {
+            if (pCallback.m_unAppID == appId) {
+                var mod = Downloading.First(m => m.id == pCallback.m_nPublishedFileId);
+                if (mod != null) {
+                    Downloading.Remove(mod);
+                    mod.downloaded = true;
+                    mod.isDownloading = false;
+                    mod.InitSteamInfo();
+                }
+            }
+        }
+        private static bool hasQueryResult;
+        private static SteamUGCQueryCompleted_t currentPageResult;
+        public static void OnUGCQueryResult(SteamUGCQueryCompleted_t pCallback, bool bIOFailure) {
+            if (pCallback.m_eResult != EResult.k_EResultOK || bIOFailure) {
+                // Logging; Error handling
+            } else {
+                currentPageResult = pCallback;
+            }
+            hasQueryResult = true;
+        }
+        public static void InitOnline() {
+            log.Log("Try init online.");
+            uint currentCount = 0;
+            uint currentPageNumber = 0;
+            uint totalCount = 0;
+
             do {
                 currentPageNumber += 1;
-                var currentPage = await items.GetPageAsync(currentPageNumber);
-                if (totalCount == 0) {
-                    totalCount = currentPage.Value.TotalCount;
+                var queryHandle = SteamUGC.CreateQueryAllUGCRequest(EUGCQuery.k_EUGCQuery_RankedByVote, EUGCMatchingUGCType.k_EUGCMatchingUGCType_Items, appId, appId, currentPageNumber);
+                if (queryHandle == UGCQueryHandle_t.Invalid) {
+                    log.Log($"Error while trying to init online: current running app is not {appId} or an internal error occured.");
+                    return;
                 }
-                currentCount += currentPage.Value.ResultCount;
+                SteamAPICall_t apiCall = SteamUGC.SendQueryUGCRequest(queryHandle);
+                queryCompleted.Set(apiCall);
+                // Since queries are (hopefully) reasonably fast? blocking and waiting for the result here.
+                Stopwatch stopwatch = Stopwatch.StartNew();
+                while (stopwatch.Elapsed.TotalSeconds < 2) {
+                    Thread.Sleep(50);
+                    SteamAPI.RunCallbacks();
+                }
+                stopwatch.Stop();
+                if (!hasQueryResult) {
+                    throw new Exception("Init online: got no query result within 2 seconds; SteamAPI Connection problem?");
+                }
+                if (totalCount == 0) {
+                    totalCount = currentPageResult.m_unTotalMatchingResults;
+                }
+
+                currentCount += currentPageResult.m_unNumResultsReturned;
+
                 try {
-                    foreach (var entry in currentPage.Value.Entries) {
+                    for (uint i = 0; i < currentPageResult.m_unNumResultsReturned; i++) {
+                        SteamUGC.GetQueryUGCResult(currentPageResult.m_handle, i, out var entry);
                         var m = new Mod();
                         m.InitProperties(entry);
                         mods.Add(m);
-                        if (entry.IsSubscribed || entry.IsInstalled) {
+
+                        if (m.subscribed || m.downloaded) {
                             DownloadedOrSubscribedOrInstalled.Add(m);
                         }
-                        // Want a handle for the download to allow checking for completion without having to persistently 
-                        if (entry.IsDownloading || entry.IsDownloadPending) {
+
+                        if (m.isDownloading || m.isDownloadPending) {
                             m.Download();
                         }
                     }
@@ -222,9 +251,11 @@ namespace SteamWorkshopManager {
                     log.Log("Error while init online: Exception while iterating over page results");
                     log.Log(ex.ToString());
                 }
-                if (currentPage.Value.ResultCount == 0) {
+
+                if (currentPageResult.m_unNumResultsReturned == 0) {
                     log.Log("Error while init online: Got page with 0 results; breaking to prevent infinite loop");
                 }
+
             } while (currentCount < totalCount);
         }
         public static void InitLocal() {
@@ -232,7 +263,7 @@ namespace SteamWorkshopManager {
             log.Log($"Creating temp dir at {dir}");
             ModificationManagerSettings ModManagerSettings = null;
             try {
-                var filePath = Path.Combine(AppDataDir, ModInfoFile);
+                var filePath = Path.Combine(AppDataDir, ModificationManagerSettingsName);
                 ModManagerSettings = JsonConvert.DeserializeObject<ModificationManagerSettings>(File.ReadAllText(filePath));
             } catch (Exception ex) {
                 log.Log("Error during Local Init: Deserialization of OwlcatModificationManagerSettings.json failed");
@@ -241,10 +272,12 @@ namespace SteamWorkshopManager {
             foreach (var mod in DownloadedOrSubscribedOrInstalled) {
                 mod.InitState(dir, ModManagerSettings);
             }
-            toRemoveMods.Union(settings.toRemoveIds.Select(id => mods.Where(m => m.id == id).First()));
-            toInstallMods.Union(settings.toInstallIds.Select(id => mods.Where(m => m.id == id).First()));
-            foreach (var toRemove in toRemoveMods) {
-                toRemove.UninstallFinally();
+            toRemoveMods.Union(settings.toRemoveIds.Select(id => mods.Where(m => m.id.m_PublishedFileId == id).First()));
+            toInstallMods.Union(settings.toInstallIds.Select(id => mods.Where(m => m.id.m_PublishedFileId == id).First()));
+            if (isFirstInit) {
+                foreach (var toRemove in toRemoveMods.ToList()) {
+                    toRemove.UninstallFinally();
+                }
             }
         }
         public static bool PreInit() {
@@ -254,7 +287,9 @@ namespace SteamWorkshopManager {
             }
             AppDataDir = Application.persistentDataPath;
             try {
-                SteamClient.Init(appId);
+                if (!SteamAPI.Init()) {
+                    throw new Exception("SteamAPI.Init returned false");
+                }
             } catch (Exception e) {
                 log.Log("Error during Pre-Initialization: Can't init SteamClient");
                 log.Log(e.ToString());
@@ -276,7 +311,7 @@ namespace SteamWorkshopManager {
             mods = new();
             Downloading = new();
             DownloadedOrSubscribedOrInstalled = new();
-            InitOnline().GetAwaiter().GetResult();
+            InitOnline();
             InitLocal();
         }
     }

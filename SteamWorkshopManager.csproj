@@ -80,16 +80,19 @@
 			<HintPath>$(RogueTraderInstallDir)\WH40KRT_Data\Managed\UnityModManagerBridge.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
-		<Reference Include="Facepunch.Steamworks.Win64">
-			<HintPath>$(SolutionDir)lib\Facepunch.Steamworks.Win64.dll</HintPath>
-			<Private>True</Private>
+		<Reference Include="Steamworks.NET">
+			<HintPath>$(RogueTraderInstallDir)\WH40KRT_Data\Managed\Steamworks.NET.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="com.rlabrecque.steamworks.net">
+			<HintPath>$(RogueTraderInstallDir)\WH40KRT_Data\Managed\com.rlabrecque.steamworks.net.dll</HintPath>
+			<Private>False</Private>
 		</Reference>
 	</ItemGroup>
 	<ItemGroup>
 		<PubliciseInputAssemblies Include="$(RogueTraderInstallDir)\WH40KRT_Data\Managed\Code.dll" />
 		<PubliciseInputAssemblies Include="$(RogueTraderInstallDir)\WH40KRT_Data\Managed\RogueTrader.GameCore.dll" />
 		<PubliciseInputAssemblies Include="$(RogueTraderData)\UnityModManager\UnityModManager.dll" />
-		<PubliciseInputAssemblies Include="$(RogueTraderInstallDir)\WH40KRT_Data\Managed\Steamworks.NET.dll" />
 	</ItemGroup>
 	<ItemGroup>
 		<Content Include="ModDetails\*.*">
