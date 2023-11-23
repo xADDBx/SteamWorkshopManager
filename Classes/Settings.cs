@@ -14,6 +14,7 @@ namespace SteamWorkshopManager {
         public List<ulong> toInstallIds = new();
         public List<ulong> toRemoveIds = new();
         public List<ulong> toUpdateIds = new();
+        public SerializableDictionary<ulong, ulong> installedTimestamp = new();
         public override void Save(UnityModManager.ModEntry modEntry) => Save(this, modEntry);
     }
 }

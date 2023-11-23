@@ -71,13 +71,6 @@ namespace SteamWorkshopManager {
                 UI.Toggle("Should automatically delete unsubscribed items (still needs refresh or restart if done over Steam Website)", ref settings.ShouldAutoDeleteUnsubscribedItems);
                 UI.Toggle("Should automatically delete subscribed items (still needs refresh or restart if done over Steam Website)", ref settings.ShouldAutoInstallSubscribedItems);
                 lastFrameWasException = false;
-                UI.Toggle("Information", ref showInformation);
-                if (showInformation) {
-                    UI.Label("Subscribing can be done by either using this mod or subscribing with your Browser.\nSubscribed mods are automatically downloaded by Steam after some time.\nIf you subscribed/unsubscribed to something in your Browser you might need to Reset Cache.");
-                    UI.Label("A mod is downloaded if it is locally cached by Steam. If a mod is not subscribed then those files should be automatically cleaned by Steam eventually.");
-                    UI.Label("A mod is installed when the downloaded files are actually extracted and installed in the respective directories. This is done easiest by using this tool.");
-                    UI.Label("A mod is enabled after it is properly installed and the game is restarted once.");
-                }
                 if (startShow) {
                     ModBrowser.OnGUI(DownloadedOrSubscribedOrInstalled, () => mods, m => m, m => $"{m.name} {m.description} {m.id} {m.authorName} {m.authorID}", m => new string[] { m.name ?? "" }, () => {
                         UI.Label("Name", UI.Width(210));
@@ -134,10 +127,18 @@ namespace SteamWorkshopManager {
                             } else {
                                 UI.Label(UI.CheckGlyphOff, UI.Width(50));
                             }
-                            var text = def.hasUpdate ? "Update" : "Reinstall";
+                            var text = (def.hasUpdate || def.localTimestamp > settings.installedTimestamp[def.id.m_PublishedFileId]) ? "Update" : "Reinstall";
                             UI.ActionButton(text, () => todo.Add(() => def.Update()), UI.Width(150));
                         });
                 }
+                UI.DisclosureToggle("Explanation", ref showInformation, () => {
+                    UI.VStack(null, new[] {
+                        () => UI.Label("Subscribing can be done by either using this mod or subscribing with your Browser. Subscribed mods are automatically downloaded by Steam after some time. If you subscribed/unsubscribed to something in your Browser you might need to Reset Cache."),
+                        () => UI.Label("A mod is downloaded if it is locally cached by Steam. If a mod is not subscribed then those files should be automatically cleaned by Steam eventually."),
+                        () => UI.Label("A mod is installed when the downloaded files are actually extracted and installed in the respective directories. This is done easiest by using this tool."),
+                        () => UI.Label("A mod is enabled after it is properly installed and the game is restarted once.")
+                    });
+                });
                 if (Event.current.type == EventType.Repaint && finishedOnlineInit) {
                     timer += 1;
                     foreach (var action in todo) {

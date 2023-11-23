@@ -31,6 +31,7 @@ namespace SteamWorkshopManager {
         public bool hasUpdate = false;
         public bool isUmm;
         public bool dirtyManifest = false;
+        public uint localTimestamp;
         public string uniqueName = null;
         public string cacheLocation = null;
         public string ModManagerPath => isUmm ? Path.Combine(Main.AppDataDir, "UnityModManager") : Path.Combine(Main.AppDataDir, "Modifications");
@@ -118,6 +119,7 @@ namespace SteamWorkshopManager {
                 Main.settings.toInstallIds.Remove(id.m_PublishedFileId);
                 Main.toUpdateMods.Remove(this);
                 Main.toInstallMods.Remove(this);
+                Main.settings.installedTimestamp[id.m_PublishedFileId] = localTimestamp;
             } else {
                 Download();
                 Main.settings.toInstallIds.Add(id.m_PublishedFileId);
@@ -128,6 +130,7 @@ namespace SteamWorkshopManager {
             installed = false;
             Main.settings.toRemoveIds.Add(id.m_PublishedFileId);
             Main.toRemoveMods.Add(this);
+            Main.settings.installedTimestamp.Remove(localTimestamp);
             DirectoryInfo targetDir = new DirectoryInfo(Path.Combine(ModManagerPath, uniqueName));
             if (isUmm) {
                 File.Delete(Path.Combine(targetDir.FullName, Main.UMMInfoName));
@@ -177,6 +180,7 @@ namespace SteamWorkshopManager {
             if (downloaded) {
                 SteamUGC.GetItemInstallInfo(id, out var size, out var dir, 256, out var timestamp);
                 cacheLocation = dir;
+                localTimestamp = timestamp;
             }
         }
         public void InitState(DirectoryInfo tempDir, ModificationManagerSettings ModManagerSettings) {
