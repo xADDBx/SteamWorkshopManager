@@ -110,6 +110,12 @@
 		<PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
 	</ItemGroup>
 	<ItemGroup>
+	  <Content Remove="ModDetails\OwlcatModificationManifest.json" />
+	</ItemGroup>
+	<ItemGroup>
+	  <None Remove="ModDetails\OwlcatModificationManifest.json" />
+	</ItemGroup>
+	<ItemGroup>
 		<PackageReference Include="UnityEngine.Modules" Version="2022.3.7" IncludeAssets="compile" />
 		<PackageReference Include="Aze.Publicise.MSBuild.Task" Version="1.1.0" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" PrivateAssets="all" />
 	</ItemGroup>

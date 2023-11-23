@@ -64,6 +64,16 @@ namespace SteamWorkshopManager {
         }
         public void Install() {
             if (downloaded) {
+                Main.toInstallMods.Remove(this);
+                Main.settings.toInstallIds.Remove(id.m_PublishedFileId);
+                if (enabled && !isUmm) {
+                    // This is an update of an installed Owlcat Template mod. This should be done on game start
+                    if (!Main.isFirstInit) {
+                        return;
+                    }
+                    Main.settings.toUpdateIds.Remove(id.m_PublishedFileId);
+                    Main.toUpdateMods.Remove(this);
+                }
                 var tempDir = new DirectoryInfo(Path.Combine(Main.AppDataDir, "ModTemp"));
                 if (tempDir.Exists) {
                     tempDir.Delete(true);
@@ -106,8 +116,6 @@ namespace SteamWorkshopManager {
                     Helper.HandleManagerSettings(true, modInfo.UniqueName);
                 }
                 installed = true;
-                Main.toInstallMods.Remove(this);
-                Main.settings.toInstallIds.Remove(id.m_PublishedFileId);
             } else {
                 Download();
                 Main.settings.toInstallIds.Add(id.m_PublishedFileId);
@@ -142,6 +150,8 @@ namespace SteamWorkshopManager {
         public void Update() {
             hasUpdate = false;
             downloaded = false;
+            Main.settings.toUpdateIds.Add(id.m_PublishedFileId);
+            Main.toUpdateMods.Add(this);
             Install();
         }
         public void InitProperties(SteamUGCDetails_t entry) {

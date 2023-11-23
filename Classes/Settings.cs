@@ -13,6 +13,7 @@ namespace SteamWorkshopManager {
         public bool ShouldAutoInstallSubscribedItems = true;
         public List<ulong> toInstallIds = new();
         public List<ulong> toRemoveIds = new();
+        public List<ulong> toUpdateIds = new();
         public override void Save(UnityModManager.ModEntry modEntry) => Save(this, modEntry);
     }
 }

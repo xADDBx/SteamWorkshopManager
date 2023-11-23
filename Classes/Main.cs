@@ -33,6 +33,7 @@ namespace SteamWorkshopManager {
         public static HashSet<Mod> DownloadedOrSubscribedOrInstalled = new();
         public static HashSet<Mod> toInstallMods = new();
         public static HashSet<Mod> toRemoveMods = new();
+        public static HashSet<Mod> toUpdateMods = new();
         public static HashSet<Mod> Downloading = new();
         public static bool finishedOnlineInit = false;
         public static bool finishedLocalInit = false;
@@ -58,6 +59,7 @@ namespace SteamWorkshopManager {
         internal static HashSet<Action> todo = new();
         internal static Exception lastException = null;
         internal static bool lastFrameWasException = false;
+        internal static bool showInformation = false;
         public static void OnGUI(UnityModManager.ModEntry modEntry) {
             try {
                 if (lastException != null || (lastFrameWasException && Event.current.type == EventType.Repaint)) {
@@ -69,6 +71,13 @@ namespace SteamWorkshopManager {
                 UI.Toggle("Should automatically delete unsubscribed items (still needs refresh or restart if done over Steam Website)", ref settings.ShouldAutoDeleteUnsubscribedItems);
                 UI.Toggle("Should automatically delete subscribed items (still needs refresh or restart if done over Steam Website)", ref settings.ShouldAutoInstallSubscribedItems);
                 lastFrameWasException = false;
+                UI.Toggle("Information", ref showInformation);
+                if (showInformation) {
+                    UI.Label("Subscribing can be done by either using this mod or subscribing with your Browser.\nSubscribed mods are automatically downloaded by Steam after some time.\nIf you subscribed/unsubscribed to something in your Browser you might need to Reset Cache.");
+                    UI.Label("A mod is downloaded if it is locally cached by Steam. If a mod is not subscribed then those files should be automatically cleaned by Steam eventually.");
+                    UI.Label("A mod is installed when the downloaded files are actually extracted and installed in the respective directories. This is done easiest by using this tool.");
+                    UI.Label("A mod is enabled after it is properly installed and the game is restarted once.");
+                }
                 if (startShow) {
                     ModBrowser.OnGUI(DownloadedOrSubscribedOrInstalled, () => mods, m => m, m => $"{m.name} {m.description} {m.id} {m.authorName} {m.authorID}", m => new string[] { m.name ?? "" }, () => {
                         UI.Label("Name", UI.Width(210));
@@ -282,9 +291,13 @@ namespace SteamWorkshopManager {
             }
             toRemoveMods.Union(settings.toRemoveIds.Select(id => mods.Where(m => m.id.m_PublishedFileId == id).First()));
             toInstallMods.Union(settings.toInstallIds.Select(id => mods.Where(m => m.id.m_PublishedFileId == id).First()));
+            toUpdateMods.Union(settings.toUpdateIds.Select(id => mods.Where(m => m.id.m_PublishedFileId == id).First()));
             if (isFirstInit) {
                 foreach (var toRemove in toRemoveMods.ToList()) {
                     toRemove.UninstallFinally();
+                }
+                foreach (var toUpdate in toUpdateMods.ToList()) {
+                    toUpdate.Install();
                 }
             }
         }
@@ -316,11 +329,11 @@ namespace SteamWorkshopManager {
         public static void Refresh() {
             toRemoveMods = new();
             toInstallMods = new();
+            toUpdateMods = new();
             mods = new();
             Downloading = new();
             DownloadedOrSubscribedOrInstalled = new();
-            InitOnline();
-            InitLocal();
+            Init();
         }
     }
 }
