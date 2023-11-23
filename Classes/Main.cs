@@ -71,14 +71,14 @@ namespace SteamWorkshopManager {
                 lastFrameWasException = false;
                 if (startShow) {
                     ModBrowser.OnGUI(DownloadedOrSubscribedOrInstalled, () => mods, m => m, m => $"{m.name} {m.description} {m.id} {m.authorName} {m.authorID}", m => new string[] { m.name ?? "" }, () => {
-                        UI.Label("Name", UI.Width(200));
-                        UI.Label("Id", UI.Width(100));
-                        UI.Label("Author", UI.Width(100));
-                        UI.Label("Description", UI.Width(600));
-                        UI.Label("Subscribed", UI.Width(160));
-                        UI.Label("Downloaded", UI.Width(140));
-                        UI.Label("Installed", UI.Width(140));
-                        UI.Label("Enabled", UI.Width(140));
+                        UI.Label("Name", UI.Width(210));
+                        UI.Label("Workshop Id", UI.Width(110));
+                        UI.Label("Author ID", UI.Width(160));
+                        UI.Label("Description", UI.Width(610));
+                        UI.Label("Subscribed", UI.Width(150));
+                        UI.Label("Downloaded", UI.Width(130));
+                        UI.Label("Installed", UI.Width(130));
+                        UI.Label("Enabled", UI.Width(130));
                     },
                         (def, item) => {
                             if (def.dirtyManifest) {
@@ -87,9 +87,13 @@ namespace SteamWorkshopManager {
                                 }
                             }
                             UI.Label(def.name ?? "", UI.Width(200));
-                            UI.Label(def.id.ToString() ?? "", UI.Width(100));
-                            UI.Label(def.authorName ?? def.authorID.ToString() ?? "", UI.Width(100));
+                            UI.Space(10);
+                            UI.ClipboardLabel(def.id.ToString() ?? "", UI.Width(100));
+                            UI.Space(10);
+                            UI.ClipboardLabel(def.authorName ?? def.authorID.ToString() ?? "", UI.Width(150));
+                            UI.Space(10);
                             UI.Label(def.description ?? "", UI.Width(600));
+                            UI.Space(10);
                             if (def.subscribed) {
                                 UI.Label(UI.ChecklyphOn, UI.Width(15));
                                 UI.ActionButton("Unsubscribe", () => todo.Add(() => def.Unsubscribe()), UI.Width(125));
@@ -97,15 +101,17 @@ namespace SteamWorkshopManager {
                                 UI.Label(UI.CheckGlyphOff, UI.Width(15));
                                 UI.ActionButton("Subscribe", () => todo.Add(() => def.Subscribe()), UI.Width(125));
                             }
-                            UI.Space(20);
+                            UI.Space(10);
                             if (def.downloaded) {
                                 UI.Label(UI.ChecklyphOn, UI.Width(15));
+                                // Steam API doesn't really provide a way to delete locally cached files cleanly...
+                                // UI.ActionButton("Delete", () => todo.Add(() => def.Delete()), UI.Width(105));
                                 UI.Space(105);
                             } else {
                                 UI.Label(UI.CheckGlyphOff, UI.Width(15));
                                 UI.ActionButton("Download", () => todo.Add(() => def.Download()), UI.Width(105));
                             }
-                            UI.Space(20);
+                            UI.Space(10);
                             if (def.installed) {
                                 UI.Label(UI.ChecklyphOn, UI.Width(15));
                                 UI.ActionButton("Uninstall", () => todo.Add(() => def.Uninstall()), UI.Width(105));
@@ -113,13 +119,14 @@ namespace SteamWorkshopManager {
                                 UI.Label(UI.CheckGlyphOff, UI.Width(15));
                                 UI.ActionButton("Install", () => todo.Add(() => def.Install()), UI.Width(105));
                             }
-                            UI.Space(20);
+                            UI.Space(10);
                             if (def.enabled) {
                                 UI.Label(UI.ChecklyphOn, UI.Width(50));
                             } else {
                                 UI.Label(UI.CheckGlyphOff, UI.Width(50));
                             }
-                            UI.ActionButton("Reinstall/Update", () => todo.Add(() => def.Update()), UI.Width(200));
+                            var text = def.hasUpdate ? "Update" : "Reinstall";
+                            UI.ActionButton(text, () => todo.Add(() => def.Update()), UI.Width(150));
                         });
                 }
                 if (Event.current.type == EventType.Repaint && finishedOnlineInit) {
