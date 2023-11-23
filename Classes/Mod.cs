@@ -145,7 +145,10 @@ namespace SteamWorkshopManager {
             Install();
         }
         public void InitProperties(SteamUGCDetails_t entry) {
-            // authorName = entry.Owner.Name;
+            // This would be the correct way to get the name of a Steam User, but it has the following constrainst:
+            // This will only be known to the current user if the other user is in their friends list, on the same game server, in a chat room or lobby, or in a small Steam group with the local user.
+            // So it would only show [unknown] for most mods
+            // authorName = SteamFriends.GetFriendPersonaName(new CSteamID(entry.m_ulSteamIDOwner));
             description = entry.m_rgchDescription;
             authorID = entry.m_ulSteamIDOwner;
             name = entry.m_rgchTitle;
