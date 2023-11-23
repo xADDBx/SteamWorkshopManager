@@ -71,9 +71,9 @@ namespace SteamWorkshopManager {
                     if (!Main.isFirstInit) {
                         return;
                     }
-                    Main.settings.toUpdateIds.Remove(id.m_PublishedFileId);
-                    Main.toUpdateMods.Remove(this);
                 }
+                Main.settings.toUpdateIds.Remove(id.m_PublishedFileId);
+                Main.toUpdateMods.Remove(this);
                 var tempDir = new DirectoryInfo(Path.Combine(Main.AppDataDir, "ModTemp"));
                 if (tempDir.Exists) {
                     tempDir.Delete(true);
