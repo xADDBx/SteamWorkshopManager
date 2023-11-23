@@ -221,6 +221,7 @@ namespace SteamWorkshopManager {
                 while (stopwatch.Elapsed.TotalSeconds < 2) {
                     Thread.Sleep(50);
                     SteamAPI.RunCallbacks();
+                    if (hasQueryResult) break;
                 }
                 stopwatch.Stop();
                 if (!hasQueryResult) {
