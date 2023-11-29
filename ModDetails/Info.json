@@ -7,6 +7,6 @@
   "Requirements": [],
   "AssemblyName": "SteamWorkshopManager.dll",
   "EntryMethod": "SteamWorkshopManager.Main.Load",
-  "HomePage": "",
-  "Repository": ""
+  "HomePage": "https://github.com/xADDBx/SteamWorkshopManager",
+  "Repository": "https://raw.githubusercontent.com/xADDBx/SteamWorkshopManager/main/ModDetails/Repository.json"
 }

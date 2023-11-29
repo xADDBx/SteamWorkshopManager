@@ -95,10 +95,7 @@
 		<PubliciseInputAssemblies Include="$(RogueTraderData)\UnityModManager\UnityModManager.dll" />
 	</ItemGroup>
 	<ItemGroup>
-		<Content Include="ModDetails\*.*">
-			<Link>%(Filename)%(Extension)</Link>
-			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
+		<None Include="ModDetails\Info.json" Link="%(Filename)%(Extension)" CopyToOutputDirectory="Always" />
 	</ItemGroup>
 	<PropertyGroup>
 		<PostBuildEvent Condition=" '$(RogueTraderInstallDir)' != ''">
