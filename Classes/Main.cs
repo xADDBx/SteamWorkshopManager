@@ -127,7 +127,12 @@ namespace SteamWorkshopManager {
                             } else {
                                 UI.Label(UI.CheckGlyphOff, UI.Width(50));
                             }
-                            var text = (def.hasUpdate || def.localTimestamp > settings.installedTimestamp[def.id.m_PublishedFileId]) ? "Update" : "Reinstall";
+                            string text;
+                            if (settings.installedTimestamp.TryGetValue(def.id.m_PublishedFileId, out var installedStamp)) {
+                                text = (def.hasUpdate || def.localTimestamp > installedStamp) ? "Update" : "Reinstall";
+                            } else {
+                                text = (def.hasUpdate) ? "Update" : "Reinstall";
+                            }
                             UI.ActionButton(text, () => todo.Add(() => def.Update()), UI.Width(150));
                         });
                 }
