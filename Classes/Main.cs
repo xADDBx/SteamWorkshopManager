@@ -214,13 +214,12 @@ namespace SteamWorkshopManager {
             }
         }
         private static bool hasQueryResult;
-        private static SteamUGCQueryCompleted_t currentPageResult;
+        private static SteamUGCQueryCompleted_t newPageResult;
         public static void OnUGCQueryResult(SteamUGCQueryCompleted_t pCallback, bool bIOFailure) {
             if (pCallback.m_eResult != EResult.k_EResultOK || bIOFailure) {
                 log.Log("Query Result Callback is not okay or callback failed?");
-                currentPageResult = new();
             } else {
-                currentPageResult = pCallback;
+                newPageResult = pCallback;
             }
             hasQueryResult = true;
         }
@@ -248,8 +247,12 @@ namespace SteamWorkshopManager {
                     if (hasQueryResult) break;
                 }
                 stopwatch.Stop();
+                SteamUGCQueryCompleted_t currentPageResult;
                 if (!hasQueryResult) {
                     throw new Exception("Init online: got no query result within 2 seconds; SteamAPI Connection problem?");
+                } else {
+                    currentPageResult = newPageResult;
+                    newPageResult = default;
                 }
                 hasQueryResult = false;
                 if (totalCount == 0) {
