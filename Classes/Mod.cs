@@ -120,6 +120,7 @@ namespace SteamWorkshopManager {
                 Main.toUpdateMods.Remove(this);
                 Main.toInstallMods.Remove(this);
                 Main.settings.installedTimestamp[id.m_PublishedFileId] = localTimestamp;
+                tempDir.Delete(true);
             } else {
                 Download();
                 Main.settings.toInstallIds.Add(id.m_PublishedFileId);
