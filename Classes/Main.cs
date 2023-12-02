@@ -217,7 +217,8 @@ namespace SteamWorkshopManager {
         private static SteamUGCQueryCompleted_t currentPageResult;
         public static void OnUGCQueryResult(SteamUGCQueryCompleted_t pCallback, bool bIOFailure) {
             if (pCallback.m_eResult != EResult.k_EResultOK || bIOFailure) {
-                // Logging; Error handling
+                log.Log("Query Result Callback is not okay or callback failed?");
+                currentPageResult = new();
             } else {
                 currentPageResult = pCallback;
             }
@@ -239,6 +240,7 @@ namespace SteamWorkshopManager {
                 SteamAPICall_t apiCall = SteamUGC.SendQueryUGCRequest(queryHandle);
                 queryCompleted.Set(apiCall);
                 // Since queries are (hopefully) reasonably fast? blocking and waiting for the result here.
+                // Maybe add a retry or something?
                 Stopwatch stopwatch = Stopwatch.StartNew();
                 while (stopwatch.Elapsed.TotalSeconds < 2) {
                     Thread.Sleep(50);
@@ -249,6 +251,7 @@ namespace SteamWorkshopManager {
                 if (!hasQueryResult) {
                     throw new Exception("Init online: got no query result within 2 seconds; SteamAPI Connection problem?");
                 }
+                hasQueryResult = false;
                 if (totalCount == 0) {
                     totalCount = currentPageResult.m_unTotalMatchingResults;
                 }
@@ -278,7 +281,6 @@ namespace SteamWorkshopManager {
                 if (currentPageResult.m_unNumResultsReturned == 0) {
                     log.Log("Error while init online: Got page with 0 results; breaking to prevent infinite loop");
                 }
-
             } while (currentCount < totalCount);
         }
         public static void InitLocal() {
@@ -331,7 +333,6 @@ namespace SteamWorkshopManager {
             }
             return true;
         }
-        // TODO
         public static void Refresh() {
             toRemoveMods = new();
             toInstallMods = new();
