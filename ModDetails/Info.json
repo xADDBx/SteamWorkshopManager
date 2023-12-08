@@ -2,7 +2,7 @@
   "Id": "SteamWorkshopManager",
   "DisplayName": "Steam Workshop ModManager",
   "Author": "ADDB",
-  "Version": "1.0.4",
+  "Version": "1.0.5",
   "ManagerVersion": "0.25.0",
   "Requirements": [],
   "AssemblyName": "SteamWorkshopManager.dll",

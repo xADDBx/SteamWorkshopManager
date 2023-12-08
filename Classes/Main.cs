@@ -343,6 +343,7 @@ namespace SteamWorkshopManager {
             mods = new();
             Downloading = new();
             DownloadedOrSubscribedOrInstalled = new();
+            ModBrowser.ReloadData();
             Init();
         }
     }
